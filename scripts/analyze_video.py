@@ -29,6 +29,8 @@ from pathlib import Path
 
 from openai import OpenAI
 
+SKILL_DIR = Path(__file__).resolve().parent.parent
+
 
 # --- OpenAI client --------------------------------------------------------
 def make_client():
@@ -188,9 +190,10 @@ def system_prompt(topic):
         "screenshot and the transcript spoken around that moment, extract the key "
         f"takeaways about {subject} (capabilities, features, architecture, results, "
         "differentiators, or key points). Ignore generic filler. Respond ONLY with "
-        'JSON: {"title": "<short label of what this frame shows>", "bullets": '
-        '["<concise takeaway>", ...]} with 3-5 bullets. If the frame shows no '
-        "relevant content, return a single bullet saying so."
+        'JSON: {"relevant": <true/false>, "title": "<short label of what this frame '
+        'shows>", "bullets": ["<concise takeaway>", ...]} with 3-5 bullets. Set '
+        '"relevant" to false (and "bullets" to []) if the frame and transcript at '
+        f"this moment show no content relevant to {subject}."
     )
 
 
@@ -311,7 +314,8 @@ def build_html(entries, out, title, model):
 def main():
     ap = argparse.ArgumentParser(description="Video -> keyframe+takeaways HTML report.")
     ap.add_argument("video", help="input video file")
-    ap.add_argument("--out", help="output dir (default: <video_stem>_analysis)")
+    ap.add_argument("--out", help="output dir (default: outputs/<video_stem>_analysis "
+                                   "inside the skill folder)")
     ap.add_argument("--topic", help="subject the video is about, e.g. \"Acme's product\" "
                                     "(sharpens the takeaway prompt)")
     ap.add_argument("--title", help="HTML report title (default: derived from --topic/filename)")
@@ -333,7 +337,8 @@ def main():
     video = Path(args.video).expanduser().resolve()
     if not video.exists():
         sys.exit(f"Video not found: {video}")
-    out = Path(args.out).expanduser() if args.out else video.with_name(f"{video.stem}_analysis")
+    out = (Path(args.out).expanduser() if args.out
+           else SKILL_DIR / "outputs" / f"{video.stem}_analysis")
     out.mkdir(parents=True, exist_ok=True)
     title = args.title or (f"{args.topic} — Video Analysis" if args.topic
                            else f"{video.stem} — Video Analysis")
@@ -349,15 +354,23 @@ def main():
     sys_prompt = system_prompt(args.topic)
     print(f"[5/6] analyzing {len(frames)} keyframes with {args.model} ...")
     entries = []
+    skipped = 0
     for i, frame in enumerate(frames, 1):
         snippet = snippet_for(frame["t"], transcript["segments"],
                               args.win_before, args.win_after)
         analysis = analyze_frame(client, args.model, sys_prompt, frame, snippet,
                                  out, args.force)
+        if not analysis.get("relevant", True):
+            skipped += 1
+            print(f"      [{i}/{len(frames)}] {fmt_mmss(frame['t'])} - "
+                  "skipped (not relevant)")
+            continue
         entries.append({"t": frame["t"], "path": str(frame["path"]),
                         "snippet": snippet, "analysis": analysis})
         print(f"      [{i}/{len(frames)}] {fmt_mmss(frame['t'])} - "
               f"{str(analysis.get('title', ''))[:60]}")
+    if skipped:
+        print(f"      skipped {skipped} frame(s) with no relevant content")
 
     report = build_html(entries, out, title, args.model)
     print(f"\nDone. Open: {report}")

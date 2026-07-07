@@ -24,9 +24,10 @@ One command runs the whole pipeline:
 uv run --with openai python scripts/analyze_video.py INPUT.mp4 --topic "Acme's product"
 ```
 
-Output lands in `INPUT_analysis/` next to the video (override with `--out DIR`):
-`audio.mp3`, `transcript.json`, `keyframes/*.jpg`, `analysis/*.json`, `report.html`.
-Open `report.html` in a browser.
+Output lands in `outputs/INPUT_analysis/` inside this skill's own folder (override with
+`--out DIR`): `audio.mp3`, `transcript.json`, `keyframes/*.jpg`, `analysis/*.json`,
+`report.html`. Open `report.html` in a browser. `outputs/` is gitignored, so reports
+never get checked into this repo.
 
 **Always pass `--topic`** with the subject of the video (e.g. `"Sierra's product"`,
 `"the Q3 earnings call"`). It sharpens the takeaway prompt; without it the model uses a
@@ -42,9 +43,10 @@ generic prompt.
 4. Extract one JPEG per timestamp; the timestamp is in the filename
    (`keyframe_0222_141.57s.jpg` = 02:22 / 141.57s).
 5. For each keyframe, send the image + the transcript spoken in `[t-8s, t+20s]` to the vision
-   model → JSON `{title, bullets}`.
+   model → JSON `{relevant, title, bullets}`. Frames the model marks `relevant: false` (no
+   content tied to `--topic`, e.g. intro small talk, blank frames) are dropped from the report.
 6. Build a self-contained `report.html` (screenshots base64-embedded, chronological, with
-   collapsible transcript context per frame).
+   collapsible transcript context per frame) from the remaining frames.
 
 **Every stage caches to the output dir**, so reruns skip finished work and only new/failed
 frames get re-analyzed. Pass `--force` to recompute everything. This makes it cheap to rerun
@@ -71,11 +73,6 @@ ffmpeg -i INPUT.mp4 -vf "select='gt(scene,0.01)',metadata=print:file=-" -an -f n
 
 ## Gotchas (learned the hard way)
 
-- **Restricted keys / scopes**: some OpenAI keys are missing scopes. Transcription needs
-  `api.model.audio.request`; a `401 missing_scope` there means the key can't transcribe.
-  For vision, the script calls the **Responses API first** (`client.responses.create`) and
-  falls back to `chat.completions` — some restricted keys allow `/v1/responses` but not
-  `/v1/chat/completions` (`model.request` scope).
 - **`OPENAI_KEY` vs `OPENAI_API_KEY`**: the OpenAI SDK defaults to `OPENAI_API_KEY`, but the
   script reads `OPENAI_KEY` too and passes the key explicitly.
 - **Too few frames** for a long video → footage is low-motion; lower `--scene-threshold` or
