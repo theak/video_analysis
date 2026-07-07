@@ -1,0 +1,4 @@
+# Generated per-video output
+*_analysis/
+__pycache__/
+.DS_Store
