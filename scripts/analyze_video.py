@@ -285,7 +285,13 @@ def build_html(entries, out, title, model):
   .card {{ display: grid; grid-template-columns: 480px 1fr; gap: 20px;
           background: #171a21; border: 1px solid #2a2e39; border-radius: 12px;
           padding: 16px; margin-bottom: 24px; position: relative; }}
-  .card img {{ width: 100%; border-radius: 8px; display: block; }}
+  .card img {{ width: 100%; border-radius: 8px; display: block; cursor: zoom-in; }}
+  #lightbox {{ position: fixed; inset: 0; z-index: 100; display: none;
+             background: #000; cursor: zoom-out; }}
+  #lightbox.open {{ display: block; }}
+  #lightbox img {{ width: 100vw; height: 100vh; object-fit: contain; }}
+  #lightbox .hint {{ position: fixed; top: 16px; right: 20px; color: #fff9;
+                   font-size: 13px; }}
   .ts {{ position: absolute; top: 24px; left: 24px; background: #000a;
         color: #fff; font-variant-numeric: tabular-nums; font-size: 13px;
         padding: 2px 8px; border-radius: 6px; }}
@@ -302,7 +308,29 @@ def build_html(entries, out, title, model):
 </header>
 <main>
 {chr(10).join(cards)}
-</main></body></html>"""
+</main>
+<div id="lightbox"><span class="hint">&larr; / &rarr; navigate &middot; click or Esc to close</span><img alt="fullscreen keyframe"></div>
+<script>
+  const lb = document.getElementById('lightbox');
+  const lbImg = lb.querySelector('img');
+  const imgs = Array.from(document.querySelectorAll('.card img'));
+  let current = -1;
+  const show = i => {{
+    current = (i + imgs.length) % imgs.length;   // wrap at both ends
+    lbImg.src = imgs[current].src;
+    lb.classList.add('open');
+  }};
+  imgs.forEach((img, i) => img.addEventListener('click', () => show(i)));
+  const close = () => {{ lb.classList.remove('open'); lbImg.removeAttribute('src'); current = -1; }};
+  lb.addEventListener('click', close);
+  document.addEventListener('keydown', e => {{
+    if (!lb.classList.contains('open')) return;
+    if (e.key === 'Escape') close();
+    else if (e.key === 'ArrowRight') {{ e.preventDefault(); show(current + 1); }}
+    else if (e.key === 'ArrowLeft')  {{ e.preventDefault(); show(current - 1); }}
+  }});
+</script>
+</body></html>"""
 
     report = out / "report.html"
     report.write_text(doc)
