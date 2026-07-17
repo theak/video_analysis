@@ -260,6 +260,7 @@ def build_html(entries, out, title, model):
         snippet = html.escape(e["snippet"] or "(no speech)")
         cards.append(f"""  <section class="card">
     <div class="ts">{fmt_mmss(e['t'])}</div>
+    <button class="del" type="button" title="Delete card" aria-label="Delete card">&times;</button>
     <img src="data:image/jpeg;base64,{b64}" alt="keyframe at {fmt_mmss(e['t'])}">
     <div class="body">
       <h2>{h_title}</h2>
@@ -295,12 +296,40 @@ def build_html(entries, out, title, model):
   .ts {{ position: absolute; top: 24px; left: 24px; background: #000a;
         color: #fff; font-variant-numeric: tabular-nums; font-size: 13px;
         padding: 2px 8px; border-radius: 6px; }}
-  .body h2 {{ margin: 0 0 10px; font-size: 18px; color: #fff; }}
+  .del {{ position: absolute; top: 20px; right: 20px; z-index: 3; width: 26px;
+         height: 26px; padding: 0; border: none; border-radius: 50%;
+         background: #000a; color: #fff; font: 18px/1 system-ui, sans-serif;
+         cursor: pointer; display: flex; align-items: center;
+         justify-content: center; transition: background .15s; }}
+  .del:hover {{ background: #e5484d; }}
+  .body h2 {{ margin: 0 0 10px; padding-right: 34px; font-size: 18px; color: #fff; }}
   .body ul {{ margin: 0 0 12px; padding-left: 20px; }}
   .body li {{ margin-bottom: 6px; }}
   details summary {{ cursor: pointer; color: #9aa1ad; font-size: 14px; }}
   details p {{ color: #9aa1ad; font-size: 14px; }}
-  @media (max-width: 820px) {{ .card {{ grid-template-columns: 1fr; }} }}
+  @media screen and (max-width: 820px) {{ .card {{ grid-template-columns: 1fr; }} }}
+  @media print {{
+    @page {{ margin: 1.2cm; }}
+    :root {{ color-scheme: light; }}
+    body {{ background: #fff; color: #000; font-size: 11px; }}
+    header {{ padding: 0 0 10px; border-bottom: 1px solid #000; }}
+    header h1 {{ color: #000; font-size: 20px; }}
+    header p {{ color: #333; }}
+    main {{ max-width: none; margin: 0; padding: 0; }}
+    /* Keep the screen's image-left/text-right layout but shrink the image so
+       several cards fit per page; force light colors regardless of the
+       browser's "print background graphics" setting. */
+    .card {{ grid-template-columns: 300px 1fr; gap: 14px; background: #fff;
+            border: 1px solid #bbb; border-radius: 6px; padding: 10px;
+            margin-bottom: 12px; break-inside: avoid; page-break-inside: avoid; }}
+    .card img {{ border: 1px solid #ddd; }}
+    .ts {{ top: 16px; left: 16px; }}
+    .body h2 {{ color: #000; font-size: 14px; margin: 0 0 6px; }}
+    .body ul {{ margin: 0; }}
+    .body li {{ margin-bottom: 3px; }}
+    details {{ display: none; }}  /* collapsed transcript is dead weight on paper */
+    .del {{ display: none; }}     /* no delete buttons on paper */
+  }}
 </style></head><body>
 <header>
   <h1>{html.escape(title)}</h1>
@@ -313,14 +342,20 @@ def build_html(entries, out, title, model):
 <script>
   const lb = document.getElementById('lightbox');
   const lbImg = lb.querySelector('img');
-  const imgs = Array.from(document.querySelectorAll('.card img'));
   let current = -1;
+  const imgList = () => Array.from(document.querySelectorAll('.card img'));  // live, survives deletes
   const show = i => {{
-    current = (i + imgs.length) % imgs.length;   // wrap at both ends
-    lbImg.src = imgs[current].src;
+    const list = imgList();
+    if (!list.length) return;
+    current = (i + list.length) % list.length;   // wrap at both ends
+    lbImg.src = list[current].src;
     lb.classList.add('open');
   }};
-  imgs.forEach((img, i) => img.addEventListener('click', () => show(i)));
+  // Client-side delete: removes the card from the DOM only, so a reload restores it.
+  document.querySelectorAll('.card .del').forEach(btn =>
+    btn.addEventListener('click', e => {{ e.stopPropagation(); btn.closest('.card').remove(); }}));
+  document.querySelectorAll('.card img').forEach(img =>
+    img.addEventListener('click', () => show(imgList().indexOf(img))));
   const close = () => {{ lb.classList.remove('open'); lbImg.removeAttribute('src'); current = -1; }};
   lb.addEventListener('click', close);
   document.addEventListener('keydown', e => {{
