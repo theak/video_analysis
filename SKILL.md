@@ -73,7 +73,7 @@ after tuning knobs or if a run is interrupted.
 - `--min-gap` (default `12`): minimum seconds between kept frames (dedupe).
 - `--max-frames` (default `0` = no cap): cap total frames (evenly subsampled) to control
   vision-model cost. Cost ≈ one vision call per kept frame.
-- `--model` (default `gpt-5.5`): vision model. `--transcribe-model` (default `whisper-1`).
+- `--model` (default `gpt-5.6-terra`): vision model. `--transcribe-model` (default `whisper-1`).
 
 To calibrate the scene threshold for a specific video, inspect the score distribution:
 

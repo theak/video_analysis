@@ -292,7 +292,8 @@ def main():
     ap.add_argument("--topic", help="subject the video is about, e.g. \"Acme's product\" "
                                     "(sharpens the takeaway prompt)")
     ap.add_argument("--title", help="report title (default: derived from --topic/filename)")
-    ap.add_argument("--model", default="gpt-5.5", help="vision model (default: gpt-5.5)")
+    ap.add_argument("--model", default="gpt-5.6-terra",
+                    help="vision model (default: gpt-5.6-terra)")
     ap.add_argument("--transcribe-model", default="whisper-1")
     ap.add_argument("--scene-threshold", type=float, default=0.05,
                     help="ffmpeg scene sensitivity; lower = more frames (default 0.05)")
