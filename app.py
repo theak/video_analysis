@@ -122,12 +122,13 @@ def api_videos():
         out.append({
             "id": m["id"],
             "url": m.get("url"),
-            "title": m.get("title"),
+            "title": jobs.clean_title(m.get("title")),
             "detail": m.get("detail"),
             "status": m.get("status"),
             "stage": m.get("stage"),
             "error": m.get("error"),
             "created_at": m.get("created_at"),
+            "has_thumb": jobs.find_thumbnail(jobs.job_dir(m["id"])) is not None,
         })
     return jsonify(out)
 
@@ -174,7 +175,7 @@ def video(jid):
     return render_template(
         "report.html",
         job_id=jid,
-        title=data.get("title") or meta.get("title") or "Video analysis",
+        title=jobs.clean_title(data.get("title") or meta.get("title")) or "Video analysis",
         model=data.get("model") or "",
         frames=frames,
         has_summaries=has_summaries,
