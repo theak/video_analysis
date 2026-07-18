@@ -1,0 +1,68 @@
+header nav { align-items: center; }
+header hgroup { margin: 0; }
+.toggle { display: flex; align-items: center; gap: .6rem; margin: 0;
+          cursor: pointer; user-select: none; white-space: nowrap; }
+.toggle input { margin: 0; }
+.print { padding: .3rem .8rem; margin: 0; font-size: .8rem; }
+.lbl-transcript, .lbl-summary { color: var(--pico-muted-color); }
+body:not(.mode-summary) .lbl-transcript,
+body.mode-summary .lbl-summary { color: var(--pico-color); }
+
+.view-summary { display: none; }
+body.mode-summary .view-transcript { display: none; }
+body.mode-summary .view-summary { display: block; }
+.view-transcript .transcript { padding-right: 2rem; }
+
+.frame { display: grid; grid-template-columns: 480px 1fr; gap: 20px;
+         position: relative; }
+.frame img { border-radius: calc(var(--pico-border-radius) * .75);
+             cursor: zoom-in; }
+.frame h2 { font-size: 1.15rem; padding-right: 2rem; margin-bottom: .6rem; }
+.frame ul { margin-bottom: .75rem; }
+.frame details { border-top: 1px solid var(--pico-muted-border-color);
+                 padding-top: .6rem; margin-bottom: 0; }
+.frame details summary { font-size: .72rem; font-weight: 600;
+                         letter-spacing: .08em; text-transform: uppercase;
+                         color: var(--pico-muted-color); }
+.frame details summary:hover { color: var(--pico-color); }
+.frame details summary::after { float: none; display: inline-block;
+                                width: .85rem; height: .85rem;
+                                background-size: .85rem auto;
+                                vertical-align: -.2rem; }
+.frame details p, .frame details ul { font-size: .9rem;
+                                      color: var(--pico-muted-color); }
+@media (max-width: 820px) { .frame { grid-template-columns: 1fr; } }
+.ts { position: absolute; top: 28px; left: 28px; background: #000a;
+      color: #fff; font-variant-numeric: tabular-nums; font-size: .8rem;
+      padding: 2px 8px; border-radius: 6px; }
+.del { position: absolute; top: 24px; right: 24px; z-index: 3; width: 26px;
+       height: 26px; margin: 0; padding: 0; border: none; border-radius: 50%;
+       background: #000a; color: #fff; font-size: 16px; line-height: 1;
+       display: flex; align-items: center; justify-content: center; }
+.del:hover { background: var(--pico-del-color); }
+
+#lightbox { position: fixed; inset: 0; z-index: 100; display: none;
+           background: #000; cursor: zoom-out; }
+#lightbox.open { display: block; }
+#lightbox img { width: 100vw; height: 100vh; object-fit: contain; }
+#lightbox .hint { position: fixed; top: 16px; right: 20px; color: #fff9;
+                 font-size: 13px; }
+
+@media print {
+  @page { margin: 1.2cm; }
+  [data-theme=dark] {
+    --pico-background-color: #fff; --pico-color: #111;
+    --pico-h1-color: #000; --pico-h2-color: #000; --pico-h3-color: #000;
+    --pico-muted-color: #333;
+    --pico-card-background-color: #fff; --pico-card-box-shadow: none;
+  }
+  html { font-size: 70%; }
+  header, main { padding-top: 0; padding-bottom: 0; max-width: none; }
+  .toggle, .print, .del, details { display: none !important; }
+  nav a[href="/"] { display: none; }
+  .frame { grid-template-columns: 300px 1fr; gap: 14px;
+           border: 1px solid #bbb; padding: 10px; margin-bottom: 12px;
+           break-inside: avoid; page-break-inside: avoid; }
+  .frame img { border: 1px solid #ddd; }
+  .ts { top: 16px; left: 16px; }
+}

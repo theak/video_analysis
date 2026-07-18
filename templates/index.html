@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video Analysis</title>
+<link rel="stylesheet" href="/static/pico.min.css">
+<link rel="stylesheet" href="/static/index.css">
+</head>
+<body>
+<header class="container" style="margin-top: 60px">
+  <hgroup>
+    <h1>Video Analysis</h1>
+    <p>Paste a video URL — YouTube, Facebook, anything yt-dlp supports. It's transcribed
+       and split into keyframes, with an AI summary for each moment available on demand.</p>
+  </hgroup>
+</header>
+
+<main class="container">
+  <form id="analyze-form">
+    <fieldset role="group">
+      <input id="url" type="url" placeholder="https://www.youtube.com/watch?v=..." autofocus>
+      <select id="detail" title="Level of detail">
+        <option value="low">Low detail</option>
+        <option value="medium" selected>Medium detail</option>
+        <option value="high">High detail</option>
+      </select>
+      <button type="submit" id="generate">Generate</button>
+    </fieldset>
+    <label>Or upload a video file
+      <input id="file" type="file" accept="video/*">
+    </label>
+  </form>
+  <p id="form-error" class="error" hidden></p>
+
+  <h2>Analyzed videos</h2>
+  <div id="videos"></div>
+  <p id="empty" hidden><small>Nothing analyzed yet — paste a URL above to get started.</small></p>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
