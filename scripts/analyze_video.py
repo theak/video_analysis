@@ -137,6 +137,12 @@ def select_timestamps(video, out, scene_threshold, interval_s, min_gap_s,
     scene = sorted(float(m) for m in re.findall(r"pts_time:([0-9.]+)", proc.stderr))
 
     dur = video_duration(video)
+    # Adapt sampling density to short clips: the passed values act as upper bounds,
+    # shrinking toward a floor as duration drops. No-op for long videos.
+    if dur > 0:
+        min_gap_s = min(min_gap_s, max(1.5, dur / 20))
+        if interval_s > 0:
+            interval_s = min(interval_s, max(5, int(dur / 8)))
     interval = [float(t) for t in range(0, int(dur), interval_s)] if interval_s > 0 else []
 
     # Merge scene cuts + interval floor + opening frame; dedupe within min_gap_s.

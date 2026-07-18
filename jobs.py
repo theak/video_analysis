@@ -48,6 +48,19 @@ VIDEO_SUFFIXES = {".mp4", ".mkv", ".webm", ".mov", ".avi", ".flv", ".m4v", ".ts"
 EXECUTOR = ThreadPoolExecutor(max_workers=int(os.environ.get("MAX_WORKERS", "1")))
 
 
+def clean_title(title: str) -> str:
+    """Tidy a social-media title: drop the 'NNN views · NNN reactions | ' prefix
+    (only when 'reactions | ' is present) and strip #hashtags."""
+    if not title:
+        return title
+    _, sep, rest = title.partition("reactions | ")
+    if sep:
+        title = rest
+    title = re.sub(r"#\w+", "", title)          # drop hashtags
+    title = re.sub(r"\s{2,}", " ", title)        # collapse the gaps they leave
+    return title.strip()
+
+
 def job_id_for(url: str, detail: str) -> str:
     return hashlib.sha256(f"{url}|{detail}".encode()).hexdigest()[:16]
 

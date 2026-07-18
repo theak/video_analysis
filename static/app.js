@@ -78,7 +78,10 @@ function card(v) {
   const wrap = document.createElement("div");
   wrap.className = "thumb-wrap";
   const img = document.createElement("img");
-  img.src = `/thumb/${v.id}`;
+  // Switch to the real thumbnail only once it exists; until then point at a
+  // genuinely different URL so polling swaps it in (and no cached /thumb 302
+  // redirect can pin the card to the placeholder).
+  img.src = v.has_thumb ? `/thumb/${v.id}` : "/static/placeholder.svg";
   img.loading = "lazy";
   img.alt = "";
   img.onerror = () => { img.src = "/static/placeholder.svg"; };
