@@ -1,0 +1,4 @@
+flask
+waitress
+openai
+yt-dlp

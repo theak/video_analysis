@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Turn any video into a self-contained HTML report: keyframes + concise LLM takeaways.
+Turn any video into structured report data: keyframes + concise LLM takeaways.
 
 Pipeline (each stage caches to the output dir, so reruns skip completed work):
   1. Extract audio                (ffmpeg)
@@ -8,7 +8,7 @@ Pipeline (each stage caches to the output dir, so reruns skip completed work):
   3. Select keyframe timestamps   (ffmpeg scene detection + fixed-interval coverage floor)
   4. Extract one keyframe / ts    (ffmpeg; timestamp embedded in filename)
   5. Analyze each keyframe        (vision model; image + aligned transcript -> JSON bullets)
-  6. Build report.html            (screenshots base64-embedded + bullets + transcript context)
+  6. Write report.json            (frames + snippets + analysis; the Flask web app renders it)
 
 Requires: ffmpeg + ffprobe on PATH; an OpenAI key in OPENAI_KEY or OPENAI_API_KEY.
 
@@ -18,7 +18,6 @@ Run:
 
 import argparse
 import base64
-import html
 import json
 import math
 import os
@@ -248,140 +247,45 @@ def _parse_json(text):
         return {"title": "(unparsed response)", "bullets": [str(text)[:500]]}
 
 
-# --- Stage 6: build HTML --------------------------------------------------
-def build_html(entries, out, title, model):
-    print("[6/6] building HTML ...")
-    cards = []
-    for e in entries:
-        b64 = base64.b64encode(Path(e["path"]).read_bytes()).decode()
-        bullets = "\n".join(f"      <li>{html.escape(str(b))}</li>"
-                            for b in e["analysis"].get("bullets", []))
-        h_title = html.escape(str(e["analysis"].get("title", "")))
-        snippet = html.escape(e["snippet"] or "(no speech)")
-        cards.append(f"""  <section class="card">
-    <div class="ts">{fmt_mmss(e['t'])}</div>
-    <button class="del" type="button" title="Delete card" aria-label="Delete card">&times;</button>
-    <img src="data:image/jpeg;base64,{b64}" alt="keyframe at {fmt_mmss(e['t'])}">
-    <div class="body">
-      <h2>{h_title}</h2>
-      <ul>
-{bullets}
-      </ul>
-      <details><summary>Transcript context</summary><p>{snippet}</p></details>
-    </div>
-  </section>""")
+# --- Stage 6: write report data -------------------------------------------
+def build_report_json(entries, out, title, topic, model):
+    """Write report.json — the structured data the web app renders server-side.
 
-    doc = f"""<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{html.escape(title)}</title>
-<style>
-  :root {{ color-scheme: light dark; }}
-  body {{ font: 16px/1.5 -apple-system, system-ui, sans-serif; margin: 0;
-         background: #0f1115; color: #e7e9ee; }}
-  header {{ padding: 32px 24px; border-bottom: 1px solid #2a2e39; }}
-  header h1 {{ margin: 0 0 4px; font-size: 24px; }}
-  header p {{ margin: 0; color: #9aa1ad; }}
-  main {{ max-width: 1100px; margin: 0 auto; padding: 24px; }}
-  .card {{ display: grid; grid-template-columns: 480px 1fr; gap: 20px;
-          background: #171a21; border: 1px solid #2a2e39; border-radius: 12px;
-          padding: 16px; margin-bottom: 24px; position: relative; }}
-  .card img {{ width: 100%; border-radius: 8px; display: block; cursor: zoom-in; }}
-  #lightbox {{ position: fixed; inset: 0; z-index: 100; display: none;
-             background: #000; cursor: zoom-out; }}
-  #lightbox.open {{ display: block; }}
-  #lightbox img {{ width: 100vw; height: 100vh; object-fit: contain; }}
-  #lightbox .hint {{ position: fixed; top: 16px; right: 20px; color: #fff9;
-                   font-size: 13px; }}
-  .ts {{ position: absolute; top: 24px; left: 24px; background: #000a;
-        color: #fff; font-variant-numeric: tabular-nums; font-size: 13px;
-        padding: 2px 8px; border-radius: 6px; }}
-  .del {{ position: absolute; top: 20px; right: 20px; z-index: 3; width: 26px;
-         height: 26px; padding: 0; border: none; border-radius: 50%;
-         background: #000a; color: #fff; font: 18px/1 system-ui, sans-serif;
-         cursor: pointer; display: flex; align-items: center;
-         justify-content: center; transition: background .15s; }}
-  .del:hover {{ background: #e5484d; }}
-  .body h2 {{ margin: 0 0 10px; padding-right: 34px; font-size: 18px; color: #fff; }}
-  .body ul {{ margin: 0 0 12px; padding-left: 20px; }}
-  .body li {{ margin-bottom: 6px; }}
-  details summary {{ cursor: pointer; color: #9aa1ad; font-size: 14px; }}
-  details p {{ color: #9aa1ad; font-size: 14px; }}
-  @media screen and (max-width: 820px) {{ .card {{ grid-template-columns: 1fr; }} }}
-  @media print {{
-    @page {{ margin: 1.2cm; }}
-    :root {{ color-scheme: light; }}
-    body {{ background: #fff; color: #000; font-size: 11px; }}
-    header {{ padding: 0 0 10px; border-bottom: 1px solid #000; }}
-    header h1 {{ color: #000; font-size: 20px; }}
-    header p {{ color: #333; }}
-    main {{ max-width: none; margin: 0; padding: 0; }}
-    /* Keep the screen's image-left/text-right layout but shrink the image so
-       several cards fit per page; force light colors regardless of the
-       browser's "print background graphics" setting. */
-    .card {{ grid-template-columns: 300px 1fr; gap: 14px; background: #fff;
-            border: 1px solid #bbb; border-radius: 6px; padding: 10px;
-            margin-bottom: 12px; break-inside: avoid; page-break-inside: avoid; }}
-    .card img {{ border: 1px solid #ddd; }}
-    .ts {{ top: 16px; left: 16px; }}
-    .body h2 {{ color: #000; font-size: 14px; margin: 0 0 6px; }}
-    .body ul {{ margin: 0; }}
-    .body li {{ margin-bottom: 3px; }}
-    details {{ display: none; }}  /* collapsed transcript is dead weight on paper */
-    .del {{ display: none; }}     /* no delete buttons on paper */
-  }}
-</style></head><body>
-<header>
-  <h1>{html.escape(title)}</h1>
-  <p>{len(entries)} keyframes · analyzed with {html.escape(model)}</p>
-</header>
-<main>
-{chr(10).join(cards)}
-</main>
-<div id="lightbox"><span class="hint">&larr; / &rarr; navigate &middot; click or Esc to close</span><img alt="fullscreen keyframe"></div>
-<script>
-  const lb = document.getElementById('lightbox');
-  const lbImg = lb.querySelector('img');
-  let current = -1;
-  const imgList = () => Array.from(document.querySelectorAll('.card img'));  // live, survives deletes
-  const show = i => {{
-    const list = imgList();
-    if (!list.length) return;
-    current = (i + list.length) % list.length;   // wrap at both ends
-    lbImg.src = list[current].src;
-    lb.classList.add('open');
-  }};
-  // Client-side delete: removes the card from the DOM only, so a reload restores it.
-  document.querySelectorAll('.card .del').forEach(btn =>
-    btn.addEventListener('click', e => {{ e.stopPropagation(); btn.closest('.card').remove(); }}));
-  document.querySelectorAll('.card img').forEach(img =>
-    img.addEventListener('click', () => show(imgList().indexOf(img))));
-  const close = () => {{ lb.classList.remove('open'); lbImg.removeAttribute('src'); current = -1; }};
-  lb.addEventListener('click', close);
-  document.addEventListener('keydown', e => {{
-    if (!lb.classList.contains('open')) return;
-    if (e.key === 'Escape') close();
-    else if (e.key === 'ArrowRight') {{ e.preventDefault(); show(current + 1); }}
-    else if (e.key === 'ArrowLeft')  {{ e.preventDefault(); show(current - 1); }}
-  }});
-</script>
-</body></html>"""
-
-    report = out / "report.html"
-    report.write_text(doc)
-    print(f"      wrote {report}")
+    Every frame is included, even ones the model marked relevant=false;
+    filtering (like all presentation) is a render-time choice, so display
+    rules can change retroactively without re-running the pipeline.
+    """
+    print("[6/6] writing report.json ...")
+    data = {
+        "version": 1,
+        "title": title,
+        "topic": topic,
+        "model": model,
+        "frames": [
+            {
+                "t": e["t"],
+                "image": Path(e["path"]).resolve().relative_to(out.resolve()).as_posix(),
+                "snippet": e["snippet"],
+                "analysis": e["analysis"],  # model JSON verbatim — schema stays fluid
+            }
+            for e in entries
+        ],
+    }
+    report = out / "report.json"
+    report.write_text(json.dumps(data, indent=2))
+    print(f"      wrote {report} ({len(entries)} frames)")
     return report
 
 
 # --- Orchestrate ----------------------------------------------------------
 def main():
-    ap = argparse.ArgumentParser(description="Video -> keyframe+takeaways HTML report.")
+    ap = argparse.ArgumentParser(description="Video -> keyframe+takeaways report data.")
     ap.add_argument("video", help="input video file")
     ap.add_argument("--out", help="output dir (default: outputs/<video_stem>_analysis "
                                    "inside the skill folder)")
     ap.add_argument("--topic", help="subject the video is about, e.g. \"Acme's product\" "
                                     "(sharpens the takeaway prompt)")
-    ap.add_argument("--title", help="HTML report title (default: derived from --topic/filename)")
+    ap.add_argument("--title", help="report title (default: derived from --topic/filename)")
     ap.add_argument("--model", default="gpt-5.5", help="vision model (default: gpt-5.5)")
     ap.add_argument("--transcribe-model", default="whisper-1")
     ap.add_argument("--scene-threshold", type=float, default=0.05,
@@ -394,6 +298,10 @@ def main():
                     help="cap analyzed frames (0 = no cap)")
     ap.add_argument("--win-before", type=float, default=8.0)
     ap.add_argument("--win-after", type=float, default=20.0)
+    ap.add_argument("--skip-analysis", action="store_true",
+                    help="skip stage 5 (LLM frame analysis); report.json gets "
+                         "analysis: null per frame, fill in later by re-running "
+                         "without this flag (stages 1-4 are cached)")
     ap.add_argument("--force", action="store_true", help="ignore caches; recompute all stages")
     args = ap.parse_args()
 
@@ -414,29 +322,37 @@ def main():
                                    args.min_gap, args.max_frames, args.force)
     frames = extract_keyframes(video, timestamps, out, args.force)
 
-    sys_prompt = system_prompt(args.topic)
-    print(f"[5/6] analyzing {len(frames)} keyframes with {args.model} ...")
     entries = []
-    skipped = 0
-    for i, frame in enumerate(frames, 1):
-        snippet = snippet_for(frame["t"], transcript["segments"],
-                              args.win_before, args.win_after)
-        analysis = analyze_frame(client, args.model, sys_prompt, frame, snippet,
-                                 out, args.force)
-        if not analysis.get("relevant", True):
-            skipped += 1
+    if args.skip_analysis:
+        print("[5/6] skipping frame analysis (--skip-analysis)")
+        for frame in frames:
+            snippet = snippet_for(frame["t"], transcript["segments"],
+                                  args.win_before, args.win_after)
+            entries.append({"t": frame["t"], "path": str(frame["path"]),
+                            "snippet": snippet, "analysis": None})
+    else:
+        sys_prompt = system_prompt(args.topic)
+        print(f"[5/6] analyzing {len(frames)} keyframes with {args.model} ...")
+        skipped = 0
+        for i, frame in enumerate(frames, 1):
+            snippet = snippet_for(frame["t"], transcript["segments"],
+                                  args.win_before, args.win_after)
+            analysis = analyze_frame(client, args.model, sys_prompt, frame, snippet,
+                                     out, args.force)
+            entries.append({"t": frame["t"], "path": str(frame["path"]),
+                            "snippet": snippet, "analysis": analysis})
+            if not analysis.get("relevant", True):
+                skipped += 1
+                print(f"      [{i}/{len(frames)}] {fmt_mmss(frame['t'])} - "
+                      "not relevant (kept in data, hidden at render time)")
+                continue
             print(f"      [{i}/{len(frames)}] {fmt_mmss(frame['t'])} - "
-                  "skipped (not relevant)")
-            continue
-        entries.append({"t": frame["t"], "path": str(frame["path"]),
-                        "snippet": snippet, "analysis": analysis})
-        print(f"      [{i}/{len(frames)}] {fmt_mmss(frame['t'])} - "
-              f"{str(analysis.get('title', ''))[:60]}")
-    if skipped:
-        print(f"      skipped {skipped} frame(s) with no relevant content")
+                  f"{str(analysis.get('title', ''))[:60]}")
+        if skipped:
+            print(f"      {skipped} frame(s) marked not relevant (hidden at render time)")
 
-    report = build_html(entries, out, title, args.model)
-    print(f"\nDone. Open: {report}")
+    report = build_report_json(entries, out, title, args.topic, args.model)
+    print(f"\nDone. Report data: {report} (rendered by the web app)")
 
 
 if __name__ == "__main__":

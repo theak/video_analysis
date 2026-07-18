@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+<link rel="stylesheet" href="/static/pico.min.css">
+<link rel="stylesheet" href="/static/report.css">
+</head><body>
+<header class="container">
+  <nav>
+    <ul>
+      <li><a href="/" title="Back to all videos" aria-label="Back to all videos">&larr;</a></li>
+      <li>
+        <hgroup>
+          <h1>{{ title }}</h1>
+          <p>{{ frames|length }} keyframes · analyzed with {{ model }}</p>
+        </hgroup>
+      </li>
+    </ul>
+    <ul>
+      <li>
+        <label class="toggle" id="mode-toggle">
+          <span class="lbl-transcript">Raw transcript</span>
+          <input type="checkbox" id="mode-switch" role="switch">
+          <span class="lbl-summary">AI summary</span>
+          <span class="generating" id="generating" aria-busy="true" hidden>Generating AI summary&hellip;</span>
+        </label>
+      </li>
+      <li><button class="print secondary outline" type="button" onclick="print()" title="Print report">Print</button></li>
+    </ul>
+  </nav>
+</header>
+<main class="container">
+{% for f in frames %}
+  <article class="frame">
+    <div class="ts">{{ f.t_label }}</div>
+    <button class="del" type="button" title="Delete card" aria-label="Delete card">&times;</button>
+    <img src="/frame/{{ job_id }}/{{ f.image_name }}" alt="keyframe at {{ f.t_label }}" loading="lazy">
+    <div class="body">
+{% if f.title %}      <h2>{{ f.title }}</h2>
+{% endif %}{% if has_summaries %}      <div class="view view-summary">
+        <ul>
+{% for b in f.bullets %}          <li>{{ b }}</li>
+{% endfor %}        </ul>
+        <details><summary>Transcript context</summary><p>{{ f.snippet or '(no speech)' }}</p></details>
+      </div>
+{% endif %}      <div class="view view-transcript">
+        <p class="transcript">{{ f.transcript or '(no speech)' }}</p>
+{% if has_summaries %}        <details><summary>AI summary</summary><ul>
+{% for b in f.bullets %}          <li>{{ b }}</li>
+{% endfor %}        </ul></details>
+{% endif %}      </div>
+    </div>
+  </article>
+{% endfor %}
+</main>
+<div id="lightbox"><span class="hint">&larr; / &rarr; navigate &middot; click or Esc to close</span><img alt="fullscreen keyframe"></div>
+<script>
+  // Raw transcript is the default view; checked = AI summary.
+  const HAS_SUMMARIES = {{ 'true' if has_summaries else 'false' }};
+  const GENERATING = {{ 'true' if generating else 'false' }};
+  const JOB_ID = {{ job_id|tojson }};
+  const MODE_KEY = `summary-mode:${JOB_ID}`;
+  const modeSwitch = document.getElementById('mode-switch');
+  const lblSummary = document.querySelector('.lbl-summary');
+  const generating = document.getElementById('generating');
+
+  const applyMode = summary => {
+    document.body.classList.toggle('mode-summary', summary);
+    modeSwitch.checked = summary;
+  };
+  if (HAS_SUMMARIES && localStorage.getItem(MODE_KEY) === 'summary') applyMode(true);
+
+  const showGenerating = () => {
+    // swap the "AI summary" label for the spinner; the switch stays put,
+    // checked and locked, until generation resolves
+    modeSwitch.checked = true;
+    modeSwitch.disabled = true;
+    lblSummary.hidden = true;
+    generating.hidden = false;
+    const timer = setInterval(async () => {
+      try {
+        const resp = await fetch(`/api/videos/${JOB_ID}/summary_status`);
+        const { status } = await resp.json();
+        if (status === 'done') {
+          clearInterval(timer);
+          localStorage.setItem(MODE_KEY, 'summary');
+          location.reload();
+        } else if (status === 'failed') {
+          clearInterval(timer);
+          generating.hidden = true;
+          lblSummary.hidden = false;
+          modeSwitch.disabled = false;
+          modeSwitch.checked = false;
+          alert('Summary generation failed — see the job log on the home page.');
+        }
+      } catch {} // transient network error — keep polling
+    }, 3000);
+  };
+
+  modeSwitch.addEventListener('change', async () => {
+    if (HAS_SUMMARIES) {
+      applyMode(modeSwitch.checked);
+      localStorage.setItem(MODE_KEY, modeSwitch.checked ? 'summary' : 'transcript');
+      return;
+    }
+    if (!modeSwitch.checked) return;
+    try { await fetch(`/api/videos/${JOB_ID}/summarize`, { method: 'POST' }); } catch {}
+    showGenerating();
+  });
+
+  if (GENERATING) showGenerating();
+
+  const lb = document.getElementById('lightbox');
+  const lbImg = lb.querySelector('img');
+  let current = -1;
+  const imgList = () => Array.from(document.querySelectorAll('.frame img'));  // live, survives deletes
+  const show = i => {
+    const list = imgList();
+    if (!list.length) return;
+    current = (i + list.length) % list.length;   // wrap at both ends
+    lbImg.src = list[current].src;
+    lb.classList.add('open');
+  };
+  // Client-side delete: removes the card from the DOM only, so a reload restores it.
+  document.querySelectorAll('.frame .del').forEach(btn =>
+    btn.addEventListener('click', e => { e.stopPropagation(); btn.closest('.frame').remove(); }));
+  document.querySelectorAll('.frame img').forEach(img =>
+    img.addEventListener('click', () => show(imgList().indexOf(img))));
+  const close = () => { lb.classList.remove('open'); lbImg.removeAttribute('src'); current = -1; };
+  lb.addEventListener('click', close);
+  document.addEventListener('keydown', e => {
+    if (!lb.classList.contains('open')) return;
+    if (e.key === 'Escape') close();
+    else if (e.key === 'ArrowRight') { e.preventDefault(); show(current + 1); }
+    else if (e.key === 'ArrowLeft')  { e.preventDefault(); show(current - 1); }
+  });
+</script>
+</body></html>

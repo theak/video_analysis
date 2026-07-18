@@ -1,6 +1,12 @@
 # Generated per-video output
 /outputs/
 
+# Web app runtime data (job dirs, downloads, reports)
+/data/
+
+# Local-only deploy notes
+/docker_deploy.md
+
 # Python
 __pycache__/
 *.py[cod]
