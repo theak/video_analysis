@@ -1,4 +1,9 @@
 #detail { width: auto; }
+
+@media (max-width: 600px) {
+  #analyze-form fieldset[role="group"] { flex-wrap: wrap; }
+  #url { flex: 1 1 100%; }
+}
 .error { color: var(--pico-del-color); }
 
 #videos {
