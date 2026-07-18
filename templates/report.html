@@ -35,9 +35,11 @@
 <main class="container">
 {% for f in frames %}
   <article class="frame">
-    <div class="ts">{{ f.t_label }}</div>
     <button class="del" type="button" title="Delete card" aria-label="Delete card">&times;</button>
-    <img src="/frame/{{ job_id }}/{{ f.image_name }}" alt="keyframe at {{ f.t_label }}" loading="lazy">
+    <div class="thumb">
+      <div class="ts">{{ f.t_label }}</div>
+      <img src="/frame/{{ job_id }}/{{ f.image_name }}" alt="keyframe at {{ f.t_label }}" loading="lazy">
+    </div>
     <div class="body">
 {% if f.title %}      <h2>{{ f.title }}</h2>
 {% endif %}{% if has_summaries %}      <div class="view view-summary">

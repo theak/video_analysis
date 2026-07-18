@@ -15,8 +15,10 @@ body.mode-summary .view-summary { display: block; }
 
 .frame { display: grid; grid-template-columns: 480px 1fr; gap: 20px;
          position: relative; }
+.thumb { position: relative; justify-self: center; }
 .frame img { border-radius: calc(var(--pico-border-radius) * .75);
-             cursor: zoom-in; }
+             cursor: zoom-in; display: block;
+             max-height: 420px; width: auto; max-width: 100%; }
 .frame h2 { font-size: 1.15rem; padding-right: 2rem; margin-bottom: .6rem; }
 .frame ul { margin-bottom: .75rem; }
 .frame details { border-top: 1px solid var(--pico-muted-border-color);
