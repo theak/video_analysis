@@ -34,6 +34,15 @@ body.mode-summary .view-summary { display: block; }
 .frame details p, .frame details ul { font-size: .9rem;
                                       color: var(--pico-muted-color); }
 @media (max-width: 820px) { .frame { grid-template-columns: 1fr; } }
+@media (max-width: 640px) {
+  html, body { overflow-x: hidden; }
+  /* stack the nav so the title gets the full width instead of sharing
+     a row with the mode toggle */
+  header nav { flex-direction: column; align-items: stretch; gap: .5rem; }
+  header nav > ul { padding: 0; width: 100%; flex-wrap: wrap; }
+  header hgroup h4, .frame h2, .transcript,
+  .frame details p { overflow-wrap: break-word; }
+}
 .ts { position: absolute; top: 28px; left: 28px; background: #000a;
       color: #fff; font-variant-numeric: tabular-nums; font-size: .8rem;
       padding: 2px 8px; border-radius: 6px; }
@@ -58,13 +67,14 @@ body.mode-summary .view-summary { display: block; }
     --pico-muted-color: #333;
     --pico-card-background-color: #fff; --pico-card-box-shadow: none;
   }
-  html { font-size: 70%; }
+  html { font-size: 80%; }
+  body { zoom: 0.95; }
   header, main { padding-top: 0; padding-bottom: 0; max-width: none; }
   .toggle, .print, .del, details { display: none !important; }
   nav a[href="/"] { display: none; }
   .frame { grid-template-columns: 300px 1fr; gap: 14px;
            border: 1px solid #bbb; padding: 10px; margin-bottom: 12px;
            break-inside: avoid; page-break-inside: avoid; }
-  .frame img { border: 1px solid #ddd; }
+  .frame img { border: 1px solid #ddd; max-height: 380px; }
   .ts { top: 16px; left: 16px; }
 }
