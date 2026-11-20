@@ -1,4 +1,4 @@
 flask
 waitress
 openai
-yt-dlp
+yt-dlp[default]
