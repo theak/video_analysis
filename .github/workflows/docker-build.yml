@@ -5,6 +5,10 @@ on:
     branches:
       - main
   workflow_dispatch:
+  # Weekly rebuild so the image picks up the latest yt-dlp (it goes stale
+  # against YouTube quickly). Mondays 09:00 UTC.
+  schedule:
+    - cron: "0 9 * * 1"
 
 jobs:
   build:
